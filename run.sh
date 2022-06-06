@@ -9,7 +9,8 @@ python3 main.py
 
 while true
 do
-  ps aux | grep python3 main.py > /dev/null
-  if [ $? -ne 0 ]; then
-    python3 main.py
-  fi
+    ps aux | grep python3 main.py > /dev/null
+    if [ $? -ne 0 ]; then
+        python3 main.py
+    fi
+done

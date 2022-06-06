@@ -9,9 +9,10 @@ from telegram.ext import (
     MessageHandler,
     Filters,
     ConversationHandler,
-    CallbackContext,
-    run_async
+    CallbackContext
 )
+
+from telegram.ext.dispatcher import run_async
 import random
 from parsers import User
 from ocr import ocr
@@ -65,7 +66,7 @@ def return_user(telegram_id) -> parsers.User:
             return user
 
 
-@run_async
+
 def parse_file(file: str, table_group_name: str, append_choise=True):
     msg = ""
     filetype = file[len(file) - 5:len(file)]
@@ -799,7 +800,7 @@ def append_choice(update: Update, context: CallbackContext):
                                   )
         return LINK_INSERTION
 
-@run_async
+
 def file_insertion(update: Update, context: CallbackContext) -> int:
     try:
         flag = False
@@ -880,7 +881,7 @@ def get_info(update: Update, context: CallbackContext) -> int:
 
         return PARAMETER_CONFIRMATION
 
-@run_async
+
 def parameter_confirmation(update: Update, context: CallbackContext):
 
     user = return_user(update.message.from_user.id)
@@ -1001,7 +1002,7 @@ def get_data(path: str, user: parsers.User):
 
 
 # OCR
-@run_async
+
 def photo_insertion(update: Update, context: CallbackContext) -> int:
     user = return_user(update.message.from_user.id)
     try:
@@ -1058,7 +1059,7 @@ def photo_insertion(update: Update, context: CallbackContext) -> int:
 
 
 # downloading file from cloud storages
-@run_async
+
 def download_file(update: Update, context: CallbackContext) -> int:
 
     try:
@@ -1269,59 +1270,64 @@ def main() -> None:
 
         # Admin panel
             ADMIN_CHOISE: [MessageHandler(filters=Filters.regex('Адміністрування|Введення/Пошук інформації|Інструкція'),
-                                          callback=admin_choise)],
+                                          callback=admin_choise, run_async=True)],
             ADMIN_PANEL: [MessageHandler(filters=Filters.regex(
                 r'Додавання користувача|Видалення користувача|Вивантаження БД|Вивантаження логів|Перевірка токена S4F'),
-                                         callback=admin_panel)],
+                                         callback=admin_panel, run_async=True)],
 
             # user list manipulations
             USER_ADDING: [MessageHandler(filters=Filters.contact, callback=user_adding)],
             USER_INFO_CONFIRMATION: [MessageHandler(filters=Filters.regex(
                 "Занести користувача до бази|Ім'я користувача|PIN|Телеграм ID|Роль"
-            ), callback=user_info_confirmation)],
+            ), callback=user_info_confirmation, run_async=True)],
             USER_INFO_CORRECTION: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу))'),
                                                   callback=user_info_correction)],
-            USER_DELETING: [MessageHandler(filters=Filters.regex("[0-9]{0,50}"), callback=user_deleting)],
-            LOG_CHOICE: [MessageHandler(filters=Filters.regex("Лог дій користувачів|Лог бота"), callback=log_choice)],
+            USER_DELETING: [MessageHandler(filters=Filters.regex("[0-9]{0,50}"),
+                                           callback=user_deleting, run_async=True)],
+            LOG_CHOICE: [MessageHandler(filters=Filters.regex("Лог дій користувачів|Лог бота"),
+                                        callback=log_choice, run_async=True)],
             S4F_TOKEN_INSERTION: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу))'),
-                                                 callback=s4f_token_insertion)],
+                                                 callback=s4f_token_insertion, run_async=True)],
 
 
         # User pannel
-            MAIN_MENU: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу))'), callback=main_menu)],
-            IO_CHOISE: [MessageHandler(filters=Filters.regex(choise_regex), callback=io_choise)],
+            MAIN_MENU: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу))'),
+                                       callback=main_menu, run_async=True)],
+            IO_CHOISE: [MessageHandler(filters=Filters.regex(choise_regex), callback=io_choise, run_async=True)],
 
             # Insertion of information
             INSERTION_MODE: [MessageHandler(filters=Filters.regex('Вручну|У вигляді файлу|У вигляді зображення|У вигляді посилання'),
                                             callback=insertion_mode)],
             TABLE_GROUP_SELECTION: [MessageHandler(filters=Filters.regex("До нової групи|До існуючої групи"),
-                                            callback=table_group_selection)],
+                                            callback=table_group_selection, run_async=True)],
             TABLE_GROUP_STRUCTURE: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу|Назад до вибору режиму))'),
-                                                   callback=table_group_structure)],
+                                                   callback=table_group_structure, run_async=True)],
             APPEND_CHOICE: [MessageHandler(filters=Filters.regex('Додати як нову таблицю|Додати лише дані'),
-                                            callback=append_choice)],
+                                            callback=append_choice, run_async=True)],
 
             # MEGA Link insertion
             LINK_INSERTION: [MessageHandler(filters=Filters.regex(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"),
-                                            callback=download_file)],
+                                            callback=download_file, run_async=True)],
 
             # File insertion
-            FILE_INSERTION: [MessageHandler(Filters.document, callback=file_insertion)],
+            FILE_INSERTION: [MessageHandler(Filters.document, callback=file_insertion, run_async=True)],
 
             # OCR
-            PHOTO_INSERTION: [MessageHandler(Filters.photo, callback=photo_insertion)],
-            GET_PARAMETER: [MessageHandler(filters=Filters.regex(output_regex), callback=get_parameter)],
+            PHOTO_INSERTION: [MessageHandler(Filters.photo, callback=photo_insertion, run_async=True)],
+            GET_PARAMETER: [MessageHandler(filters=Filters.regex(output_regex), callback=get_parameter, run_async=True)],
             TABLE_GROUP_INPUT_SELECTION: [MessageHandler(filters=Filters.regex("[0-9]{1,2}"),
-                                            callback=table_group_input_selection)],
+                                            callback=table_group_input_selection, run_async=True)],
 
-            GET_INFO: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу|Назад до вибору режиму))'), callback=get_info)],
+            GET_INFO: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу|Назад до вибору режиму))'),
+                                      callback=get_info, run_async=True)],
 
             PARAMETER_CONFIRMATION: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу|Назад до вибору режиму))'),
-                                                    callback=parameter_confirmation)],
+                                                    callback=parameter_confirmation, run_async=True)],
             PARAMETER_CORRECTION: [MessageHandler(filters=Filters.regex('^(?!.*(Вихід|Продовжити роботу|Назад до вибору режиму))'),
-                                                  callback=parameter_correction)],
+                                                  callback=parameter_correction, run_async=True)],
 
-            CONTINUE: [MessageHandler(filters=Filters.regex('Продовжити роботу'), callback=continue_operating)],
+            CONTINUE: [MessageHandler(filters=Filters.regex('Продовжити роботу'),
+                                      callback=continue_operating, run_async=True)],
 
         },
         fallbacks=[CommandHandler('cancel', cancel), MessageHandler(filters=Filters.regex('Вихід'), callback=cancel),
