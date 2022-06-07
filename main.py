@@ -904,9 +904,16 @@ def parameter_confirmation(update: Update, context: CallbackContext):
                     update.message.reply_text("За заданими критеріями не знайдено жодного запису")
 
                 elif msg == "Результати пошуку.txt":
-                    with open(msg, "rb") as document:
-                        update.message.reply_document(document)
-
+                    with open(msg, encoding="utf8") as document:
+                        lst = [i for i in document.readlines() if '\n' == i]
+                        if len(lst) > 10:
+                            update.message.reply_document(document)
+                            print("too many results")
+                        else:
+                            print('enught results')
+                            f = open(msg, encoding='utf8')
+                            update.message.reply_text(f.read())
+                            f.close()
                 else:
                     update.message.reply_text("Параметри не задано. Введіть номер параметру")
                     return PARAMETER_CONFIRMATION

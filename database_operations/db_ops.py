@@ -86,12 +86,13 @@ def upload_data(df, tablegroup: str, table_name="",  append_choise=True):
         # header equalization
         # Занесення даних до існуючої таблиці (Ця хуйня працює!!!!)
         equal_headers = df_columns & field_names
-        if not append_choise and table_name:
+        if append_choise and table_name:
             if 'id' not in df.columns:
                 appending_df = pd.DataFrame({'id': list(range(1, df.shape[0]))})
                 df = pd.concat([df, appending_df])
                 appending_df = {}
-            df.to_sql(table_name, con=engine, if_exists='append', chunksize=10000, index=True, index_label='id')
+            df.to_sql(table_name, con=engine, if_exists='append', chunksize=10000, index=False)
+
 
         # erasing the columns that are absent in the group of tables
         print(f"Field names: {field_names}")
@@ -145,7 +146,7 @@ def upload_data(df, tablegroup: str, table_name="",  append_choise=True):
       row_number() over (
         partition by {temp_df.columns[0]}, {temp_df.columns[1]}
         ) as n
-    from "Інформація про особу"
+    from "{table}"
   )
   where n > 1); """)
 
