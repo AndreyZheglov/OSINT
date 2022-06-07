@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+import logging
 import parsers
 import apiS4F as S4f
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
@@ -11,7 +12,6 @@ from telegram.ext import (
     ConversationHandler,
     CallbackContext
 )
-
 from telegram.ext.dispatcher import run_async
 import random
 from parsers import User
@@ -23,6 +23,12 @@ from database_operations import db_ops
 
 
 FILENAME = "settings.json"
+
+
+# logging
+logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+                             filename="bot.log", encoding="utf-8")
+
 
 # list of necessary variables
 authorized_users = []
@@ -741,7 +747,8 @@ def table_group_structure(update: Update, context: CallbackContext):
         return APPEND_CHOICE
     except Exception as e:
         update.message.reply_text(error_msg)
-        parsers.log_event(e, bot_log)
+        logging.exception(e)
+        raise
 
 
 def table_group_input_selection(update: Update, context: CallbackContext):
@@ -821,9 +828,11 @@ def file_insertion(update: Update, context: CallbackContext) -> int:
                     input_field_placeholder='Здійсніть вибір...'),
         )
         return CONTINUE
+
     except Exception as e:
         update.message.reply_text(error_msg)
-        parsers.log_event(e, bot_log)
+        logging.exception(e)
+        raise
 
 
 # functions for getting info from the database
@@ -891,7 +900,10 @@ def parameter_confirmation(update: Update, context: CallbackContext):
         try:
             if user.param_dict:
                 msg = get_data(tablegroups_path, user)
-                if msg == "Результати пошуку.txt":
+                if msg == -1:
+                    update.message.reply_text("За заданими критеріями не знайдено жодного запису")
+
+                elif msg == "Результати пошуку.txt":
                     with open(msg, "rb") as document:
                         update.message.reply_document(document)
 
@@ -900,7 +912,7 @@ def parameter_confirmation(update: Update, context: CallbackContext):
                     return PARAMETER_CONFIRMATION
 
         except Exception as e:
-            parsers.log_event(e, bot_log)
+            logging.exception(e)
             update.message.reply_text(error_msg)
 
         finally:
@@ -976,6 +988,9 @@ def get_data(path: str, user: parsers.User):
             for row in list(data):
                 if user.param_dict[key] != row[header.index(key)]:
                     data.remove(row)
+
+    if data == -1:
+        return -1
 
     # data rectification
     for key in list(header):
@@ -1054,7 +1069,7 @@ def photo_insertion(update: Update, context: CallbackContext) -> int:
             return PARAMETER_CONFIRMATION
 
     except Exception as e:
-        parsers.log_event(e, bot_log)
+        logging.exception(e)
         update.message.reply_text(error_msg)
 
 
@@ -1090,7 +1105,7 @@ def download_file(update: Update, context: CallbackContext) -> int:
         )
         return CONTINUE
     except Exception as e:
-        parsers.log_event(e, bot_log)
+        logging.exception(e)
         update.message.reply_text(error_msg)
 
 
@@ -1238,9 +1253,11 @@ def return_to_admin_choice(update: Update, context: CallbackContext) -> int:
             )
             active_user.append(sender.id)
             return ADMIN_CHOISE
+
     except Exception as e:
         update.message.reply_text(error_msg)
-        parsers.log_event(e, bot_log)
+        logging.exception(e)
+        raise
 
 
 def main() -> None:

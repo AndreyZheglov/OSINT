@@ -177,7 +177,7 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
     print(target_tablenames)
 
     if len(target_tablenames) > 1:
-        max_val = -1
+        max_val = 0
         index = -1
         # опрацювати: поміряти кількість запитів
         for element in target_tablenames:
@@ -186,6 +186,9 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
                 if result[0][0] > max_val:
                     max_val = result[0][0]
                     index = target_tablenames.index(element)
+
+        if max_val == 0:
+            return -1, -1
 
         target_tablename = target_tablenames[index]
 
@@ -198,13 +201,14 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
     headers_list.extend(tables_dict[target_tablename])
     primary_table = target_tablename
     print(f"<<{tables_dict}>>")
+
     # Додаємо INNER JOIN'и
     index = 0
     primary_parameter = parameter
     primary_value = value
     table_names.remove(primary_table)
-    # перевірка доки масив імен таблиць не порожній
 
+    # перевірка доки масив імен таблиць не порожній
     while table_names:
         presence_flag = False
 
