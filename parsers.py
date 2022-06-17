@@ -1,6 +1,4 @@
 import csv
-import openpyxl
-from openpyxl import load_workbook
 import xlsxwriter
 import json
 import re
@@ -10,11 +8,12 @@ from datetime import datetime, date
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import (
     create_engine,
-    Column,
-    Integer,
-    Sequence,
-    String,
 )
+from fpdf import FPDF
+import os
+import unicodedata
+#
+
 
 """
     "CREATE TABLE IF NOT EXISTS {db_name}.{table_name} ( \
@@ -37,6 +36,38 @@ from sqlalchemy import (
                     PRIMARY KEY(id) \
                    )
     """
+# спизжено із гіта
+class FPDF_multicell(FPDF):
+
+
+    def write_multicell_with_styles(self, max_width, cell_height, text_list):
+        startx = self.get_x()
+        # self.set_font('DejaVuSans', '', 12)
+
+        #loop through differenct sections in different styles
+        for text_part in text_list:
+            #check and set style
+            try:
+                current_style = text_part['style']
+                self.set_font('DejaVuSans', current_style, 10)
+            except KeyError:
+                print("А от хуй!")
+                self.set_font('DejaVuSans', '', 10)
+
+            #loop through words and write them down
+            space_width = self.get_string_width(' ')
+            for word in text_part['text'].split(' '):
+                current_pos = self.get_x()
+                word_width = self.get_string_width(word)
+                #check for newline
+                if (current_pos + word_width) > (startx + max_width):
+                    #return
+                    self.set_y(self.get_y() + cell_height)
+                    self.set_x(startx)
+                self.cell(word_width, 5, word) #
+                #add a space
+                self.set_x(self.get_x() + space_width)
+
 
 def log_event(event, filename="userlog.txt"):
     with open(filename, "a", encoding="utf-8") as log:
@@ -59,6 +90,9 @@ def refresh_logs():
     with open("userlog.txt", "w", encoding="utf-8") as file:
         file.writelines(log_data)
 
+
+def unicode_normalize(s):
+    return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
 
 # necessary variables for futher operations
 csv_header = [
@@ -223,11 +257,6 @@ def find_element(data, header: list, key: str, value: str):
     return (output_arr, data.index(output_arr[0])) if len(output_arr) > 0 else (None, None)
 
 
-def get_info_by_parameter(key: str, value: str, table_group: str):
-
-    pass
-
-
 def write_xlsx(filename: str, data: list, header=csv_header):
     workbook = xlsxwriter.Workbook(filename)
     worksheet = workbook.add_worksheet('Список осіб')
@@ -256,7 +285,7 @@ def date_parse(data: str):
     """
     result = re.search(r"(0[1-9]|[12][0-9]|3[01])[-/.](?:0[1-9]|1[012])[-/.](?:19\d{2}|20[01][0-9]|20[0-9]{2})",
                        data)
-    return result.group() if result != None else None
+    return result.group() if result is not None else None
 
 
 def phone_parse(data: str):
@@ -285,24 +314,76 @@ def sites_parse(data: str):
     return ",".join(result) if result != [] else None
 
 
+
+def parse_file(file: str, table_group_name: str, tablename:str, append_choise=True):
+    msg = ""
+    columns = []
+    filetype = file[len(file) - 5:len(file)]
+    print(filetype)
+    # checking if filetype can be processed
+    filetype_flag = True
+    photo_flag = False
+    for form in AVAILABLE_FORMATS:
+        if form in filetype or filetype  in form:
+            filetype_flag = False
+            break
+
+    for photo in PHOTO_FORMATS:
+        if photo in filetype:
+            photo_flag = True
+            break
+
+    if photo_flag:
+        return "Для обробки фотографії спробуйте іншу опцію та надішліть фотографію \
+у нестисненому виглді"
+
+
+    elif filetype_flag:
+        return "На жаль, даний тип файлів ще не реалізовано"
+
+    else:
+        flag = False
+        if file:
+            columns = parser(file, table_group_name, tablename, append_choice=append_choise)
+            flag = True
+    if file:
+        os.system(f"DEL {file}")
+    if flag:
+        return "Дані занесено до БД.", None
+    if not flag:
+        return "Дані не було занесено до БД", None
+
+
 # general parsing choice
-def parser(filename: str, table_group_name: str, append_choice: bool, delimiter="\t"):
+def parser(filename: str, table_group_name: str, tablename:str, append_choice: bool, delimiter="\t"):
 
     filetype = filename[len(filename)-5:len(filename)]
-
+    df = None
     if ".csv" in filetype:
-        header, data = csv_parse(filename)
         df = pd.read_csv(filename)
 
     elif ".xlsx" in filetype:
-        df = pd.read_excel(filename, header=0)
-        flag = db_ops.upload_data(df,  table_group_name, table_name=filename[:filename.find('.')], append_choise=append_choice)
-        return flag
+        df = None
+        excelFile = pd.ExcelFile(filename)
+        for sheet in excelFile.sheet_names:
+            if df is None:
+                df = pd.read_excel(filename, header=0, sheet_name=sheet)
+            else:
+                new_df = pd.read_excel(filename, header=0, sheet_name=sheet)
+                df.append(new_df, ignore_index=False, verify_integrity=False)
+
+    elif ".txt" in filetype:
+        df = pd.read_table(filename)
 
     else:
         print(f"Parser for {filetype} has not been impemented yet.")
         return False
 
+    columns = list(df.columns)
+
+    flag = db_ops.upload_data(df, table_group_name, table_name=tablename,
+                              append_choise=append_choice)
+    return columns
 
 # db parser
 def db_parse(database_name: str, table_name):
@@ -386,3 +467,115 @@ def to_csv(data: list, out_file=csv_path, header=csv_header):
     write_csv(csv_data, csv_header)
 
     return True
+
+
+def get_data(path: str, user: User):
+
+    print("Пошук здійснено")
+    print(user.param_dict)
+    if not user.param_dict:
+        return "Список параметрів порожній"
+
+    # getting the first parameter
+    parameter = list(user.param_dict.keys())[0]
+    value = user.param_dict[parameter]
+
+    user.param_dict.pop(parameter)
+
+    # getting data from database
+    data, header = db_ops.get_data_from_db(parameter, value, user.table_group_name, path)
+    return_data = data
+
+    if data is int:
+        return data
+
+    else:
+        for key in user.param_dict:
+            for row in data:
+                print(header.index(key), key)
+                if user.param_dict[key] not in row[header.index(key)]:
+                    return_data.remove(row)
+                    print(f"Row to be removed: {row}")
+
+        for key in list(header):
+            if header.count(key):
+                indexes = [n for n, x in enumerate(header) if x == key]
+                for index in range(1, len(indexes), -1):
+                    header.pop(index)
+                    for row in return_data:
+                        row.pop(index)
+
+    data = return_data
+    for row in data:
+        print(row)
+
+    if len(data) > 30:
+        return -5
+
+    elif len(data) == 1:
+        msg = ""
+        for row in data:
+            for key in header:
+                if row[header.index(key)] and key != 'id':
+                    msg += f"{key}: {row[header.index(key)]}\n"
+        return msg
+
+    # data rectification
+
+
+    # print(f"Data after rectification: {data}")
+    if data:
+        write_pdf(data, header)
+        return "Результати пошуку.pdf"
+        # with open("Результати пошуку.txt", "w", encoding="utf-8") as file:
+        #     file.write("Результати пошуку:\n")
+        #     for row in data:
+        #         for key in header:
+        #             if row[header.index(key)] and key != 'id':
+        #                 file.write(f"{key}: {row[header.index(key)]}\n")
+        #         file.write("\n")
+        #
+        # return "Результати пошуку.txt"
+    else:
+        return "За даним запитом нічого не було знайдено"
+
+
+def write_pdf(data: list, header: list):
+    # creating pdf file and
+    pdf = FPDF_multicell()
+    pdf.add_font('DejaVuSans', '', 'Fonts/DejaVuSans.ttf', uni=True)
+    pdf.add_font('DejaVuSans', 'B', 'Fonts/DejaVuSans-Bold.ttf', uni=True)
+    # pdf.set_font("DejaVu", size=12)
+
+    pdf.add_page()
+
+    # Adding header
+    pdf.set_font('DejaVuSans', 'B', 20)
+    # Move to the right
+    pdf.cell(80)
+
+    pdf.cell(30, 10, txt='Результати пошуку', border=0, align='C')
+    # Line break
+    pdf.ln(20)
+    pdf.set_margins(10, 10, 10)
+
+    pdf.set_font('DejaVuSans', '', 10)
+
+    for row in data:
+
+        for key in header:
+            if row[header.index(key)] and key != 'id':
+                pdf_val = row[header.index(key)]
+                pdf_key = f"{key}:"
+                row_list = [
+                    {'style': 'B', 'text': pdf_key},
+                    {'style': '', 'text': pdf_val},
+                ]
+                print(row_list)
+                # pdf.multi_cell(180, 6, f"{pdf_key}: {pdf_val}")
+                pdf.write_multicell_with_styles(180, 6, row_list)
+                pdf.cell(180, 6, "", ln=1)
+        pdf.cell(180, 6, "", ln=1)
+
+    pdf.output("Результати пошуку.pdf")
+
