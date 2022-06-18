@@ -471,8 +471,8 @@ def to_csv(data: list, out_file=csv_path, header=csv_header):
 
 def get_data(path: str, user: User):
 
-    print("Пошук здійснено")
-    print(user.param_dict)
+    # print("Пошук здійснено")
+    # print(user.param_dict)
     if not user.param_dict:
         return "Список параметрів порожній"
 
@@ -489,13 +489,14 @@ def get_data(path: str, user: User):
     if data is int:
         return data
 
-    else:
+    elif data is list:
+
         for key in user.param_dict:
             for row in data:
                 print(header.index(key), key)
                 if user.param_dict[key] not in row[header.index(key)]:
                     return_data.remove(row)
-                    print(f"Row to be removed: {row}")
+                    # print(f"Row to be removed: {row}")
 
         for key in list(header):
             if header.count(key):
@@ -506,18 +507,20 @@ def get_data(path: str, user: User):
                         row.pop(index)
 
     data = return_data
-    for row in data:
-        print(row)
 
     if len(data) > 30:
         return -5
 
     elif len(data) == 1:
+        # print(f"Data to be printed: {data}")
         msg = ""
         for row in data:
+            # print(row)
             for key in header:
-                if row[header.index(key)] and key != 'id':
+
+                if row[header.index(key)] and msg.find(row[header.index(key)]) == -1:
                     msg += f"{key}: {row[header.index(key)]}\n"
+                # print("Message to be sent:", msg)
         return msg
 
     # data rectification
@@ -527,18 +530,9 @@ def get_data(path: str, user: User):
     if data:
         write_pdf(data, header)
         return "Результати пошуку.pdf"
-        # with open("Результати пошуку.txt", "w", encoding="utf-8") as file:
-        #     file.write("Результати пошуку:\n")
-        #     for row in data:
-        #         for key in header:
-        #             if row[header.index(key)] and key != 'id':
-        #                 file.write(f"{key}: {row[header.index(key)]}\n")
-        #         file.write("\n")
-        #
-        # return "Результати пошуку.txt"
+
     else:
         return "За даним запитом нічого не було знайдено"
-
 
 def write_pdf(data: list, header: list):
     # creating pdf file and
@@ -554,17 +548,27 @@ def write_pdf(data: list, header: list):
     # Move to the right
     pdf.cell(80)
 
+    page = 0
+    if pdf.page_no() != page:
+        pdf.image('Fonts/bugs bunny.png', x=0, y=0, w=210, h=297)
+        page = pdf.page_no()
+
     pdf.cell(30, 10, txt='Результати пошуку', border=0, align='C')
     # Line break
     pdf.ln(20)
     pdf.set_margins(10, 10, 10)
 
     pdf.set_font('DejaVuSans', '', 10)
+    msg = ""
 
     for row in data:
 
         for key in header:
-            if row[header.index(key)] and key != 'id':
+            if row[header.index(key)] and msg.find(row[header.index(key)]) == -1:
+
+                # костиль
+                msg += f"{key}: {row[header.index(key)]}\n"
+
                 pdf_val = row[header.index(key)]
                 pdf_key = f"{key}:"
                 row_list = [
@@ -572,10 +576,51 @@ def write_pdf(data: list, header: list):
                     {'style': '', 'text': pdf_val},
                 ]
                 print(row_list)
+                if pdf.page_no() != page:
+                    pdf.image('Fonts/bugs bunny.png', x=0, y=0, w=210, h=297)
+                    page = pdf.page_no()
                 # pdf.multi_cell(180, 6, f"{pdf_key}: {pdf_val}")
                 pdf.write_multicell_with_styles(180, 6, row_list)
                 pdf.cell(180, 6, "", ln=1)
         pdf.cell(180, 6, "", ln=1)
 
     pdf.output("Результати пошуку.pdf")
+# def write_pdf(data: list, header: list):
+#     # creating pdf file and
+#     pdf = FPDF_multicell()
+#     pdf.add_font('DejaVuSans', '', 'Fonts/DejaVuSans.ttf', uni=True)
+#     pdf.add_font('DejaVuSans', 'B', 'Fonts/DejaVuSans-Bold.ttf', uni=True)
+#     # pdf.set_font("DejaVu", size=12)
+#
+#     pdf.add_page()
+#
+#     # Adding header
+#     pdf.set_font('DejaVuSans', 'B', 20)
+#     # Move to the right
+#     pdf.cell(80)
+#
+#     pdf.cell(30, 10, txt='Результати пошуку', border=0, align='C')
+#     # Line break
+#     pdf.ln(20)
+#     pdf.set_margins(10, 10, 10)
+#
+#     pdf.set_font('DejaVuSans', '', 10)
+#
+#     for row in data:
+#
+#         for key in header:
+#             if row[header.index(key)] and key != 'id':
+#                 pdf_val = row[header.index(key)]
+#                 pdf_key = f"{key}:"
+#                 row_list = [
+#                     {'style': 'B', 'text': pdf_key},
+#                     {'style': '', 'text': pdf_val},
+#                 ]
+#                 print(row_list)
+#                 # pdf.multi_cell(180, 6, f"{pdf_key}: {pdf_val}")
+#                 pdf.write_multicell_with_styles(180, 6, row_list)
+#                 pdf.cell(180, 6, "", ln=1)
+#         pdf.cell(180, 6, "", ln=1)
+#
+#     pdf.output("Результати пошуку.pdf")
 

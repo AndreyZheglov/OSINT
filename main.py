@@ -43,8 +43,6 @@ table_name = None                                   # змінна для збе
 field_list = []
 
 
-
-
 tablegroups_path = "database_operations/tablegroups.json"
 table_groups = db_ops.read_tablegroups(tablegroups_path)
 
@@ -810,7 +808,7 @@ def file_insertion(update: Update, context: CallbackContext) -> int:
             update.message.reply_text(
                 'Виберіть одну із опцій',
                 reply_markup=ReplyKeyboardMarkup(
-                    reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
+                    reply_keyboard, resize_keyboard=True,
                     input_field_placeholder='Здійсніть вибір...'),
             )
             return TABLE_INDEX_CHOICE
@@ -960,7 +958,6 @@ def parameter_confirmation(update: Update, context: CallbackContext):
             else:
                 update.message.reply_text("Параметри не задано. Введіть номер параметру")
                 return PARAMETER_CONFIRMATION
-
 
         except Exception as e:
             logging.exception(e)

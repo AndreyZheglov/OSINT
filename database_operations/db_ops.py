@@ -8,9 +8,7 @@ from sqlalchemy import (
     String,
 )
 import pandas as pd
-import logging
 import json
-from datetime import datetime
 
 
 
@@ -81,7 +79,7 @@ def count_records(tablename, parameter='', value=''):
         # print(result[0])
         return result[0][0]
     except Exception as e:
-        return 0
+        return -1
 
 
 # Паше нехуйово
@@ -132,8 +130,6 @@ def upload_data(df, tablegroup: str, table_name="",  append_choise=False):
         num_rows = df.shape[0]
 
 
-
-
         # Занесення даних до існуючої таблиці (Ця хуйня працює!!!!)
         equal_headers = df_columns & field_names
         if append_choise and table_name:
@@ -156,6 +152,8 @@ def upload_data(df, tablegroup: str, table_name="",  append_choise=False):
             #     df = pd.concat([df, appending_df])
 
             df.to_sql(table_name, con=engine, if_exists='append', chunksize=10000, index=False)
+            # for element in df.columns:
+
 
         # erasing the columns that are absent in the group of tables
         # print(f"Field names: {field_names}")
@@ -243,18 +241,6 @@ def upload_data(df, tablegroup: str, table_name="",  append_choise=False):
             temp_df.to_sql(table, con=engine, if_exists='append', chunksize=10000, index=False)
             # чистимо дуплікати
             # pragma = return_pragma(table, tablegroup)
-  # Прописати хуйню на постгресі для видалення дуплікатів
-  #           with engine.begin() as conn:
-  #               conn.execute(f"""DELETE from "{table}" where rowid in (select rowid
-  # from (
-  #   select
-  #     rowid,
-  #     row_number() over (
-  #       partition by {pragma[0]}, {pragma[1]}
-  #       ) as n
-  #   from "{table}"
-  # )
-  # where n > 1); """)
 
     # except Exception as e:
     #     # тут прологувати
@@ -280,6 +266,7 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
     # print(f"Tables_dict: {tables_dict}")
     temp_tablegroup = read_tablegroups(path)
     table_names = [key for key in temp_tablegroup[table_group] if count_records(key)]
+    # print(f"Table names: {table_names}")
     target_tablename = ""
     return_rows = []
 
@@ -304,34 +291,35 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
         index = -1
             # опрацювати: поміряти кількість запитів
         for element in target_tablenames:
-            with engine.begin() as conn:
-                result = conn.execute(f"""SELECT COUNT(*) from "{element}" WHERE {parameter} LIKE '{value}%%';""").fetchall()
-                    # if result
-                if result[0][0] > max_val:
-                    max_val = result[0][0]
-                    index = target_tablenames.index(element)
+            result = count_records(element, parameter, value)
+
+            if result > max_val:
+                print(max_val, result, element)
+                max_val = result
+                index = element
+                # break
 
         if max_val == 0 or index == -1:
             return -1, -1
         else:
-            target_tablename = table_names[index]
+            target_tablename = index
             table_names.remove(target_tablename)
 
     else:
         target_tablename = table_names[0]
 
-    print(tables_dict, table_names)
+    # print(tables_dict, table_names)
     headers_list = []
 
     # 2. Починаємо будувати запит
-    print(f"<{target_tablename}>")
+    # print(f"<{target_tablename}>")
     sql = f'SELECT * FROM "{target_tablename}" '
     # print(f"<<{tables_dict}>>")
     # Додаємо INNER JOIN'и
-    print(f"New sql query: {sql}")
+    # print(f"New sql query: {sql}")
     table_names_cp = table_names
-    print("Tables_dict: ", tables_dict)
-    print("Target tablename: ", target_tablename)
+    # print("Tables_dict: ", tables_dict)
+    # print("Target tablename: ", target_tablename)
     headers_list.extend(tables_dict[target_tablename])
     primary_table = target_tablename
 
@@ -347,7 +335,7 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
         new_val = value
         if len([key for key in tables_dict]) <= 1:
             break
-        print(f"Target table name: {target_tablename}")
+        # print(f"Target table name: {target_tablename}")
 
         # ітерація полів у вибраній таблиці
         for field in tables_dict[target_tablename]:
@@ -370,23 +358,25 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
             if tables_with_common_fields:
 
                 # рахуємо взагалі кількість значень в таблиці
-                count = count_records(target_tablename, field, value)
-                if count and value:
-                    with engine.begin() as conn:
-                        # поправляємо лайк велью аби ріл по частині пріззвища шукало
-                        new_sql = f"""SELECT {field} 
-                FROM "{target_tablename}" 
-                WHERE "{target_tablename}".{parameter} LIKE '{value}%%' AND "{target_tablename}".{parameter} IS NOT 
-                NULL AND {field} IS NOT NULL;"""
-                        # print("New sql:", new_sql)
-                        new_val = conn.execute(new_sql).fetchall()[0][0]
-                        # print(new_val)
-                        value = new_val
+                # це перенести нижче: пробувати "міряти" число записів зі значеннями інших таблиць
 
-                    # print("Field and new value:", field, new_val)
-                else:
-                    # print("Перехід на нове значення")
-                    new_val = value
+                # count = count_records(target_tablename, field, value)
+                # if count and value:
+                #     with engine.begin() as conn:
+                #         # поправляємо лайк велью аби ріл по частині шукало
+                #         new_sql = f"""SELECT {field}
+                # FROM "{target_tablename}"
+                # WHERE "{target_tablename}".{parameter} LIKE '{value}%%' AND "{target_tablename}".{parameter} IS NOT
+                # NULL AND {field} IS NOT NULL;"""
+                #         # print("New sql:", new_sql)
+                #         new_val = conn.execute(new_sql).fetchall()[0][0]
+                #         # print(new_val)
+                #         value = new_val
+                #
+                #     # print("Field and new value:", field, new_val)
+                # else:
+                #     # print("Перехід на нове значення")
+                #     new_val = value
 
                 # Ітеруємо по списку таблиць із однаковими полями
                 for table in tables_with_common_fields:  # Перевіряємо поле, що рівне параметру
@@ -406,8 +396,9 @@ def get_data_from_db(parameter: str, value: str, table_group: str, path=""):
                         headers_list.extend(tables_dict[table])
                         # print(f"Table and field: {table} {field} {value} count_flag={count_records(table, field, value)}")
                         sql += f""" LEFT OUTER JOIN "{table}" ON "{table}".{field} = "{target_tablename}".{field}"""
-                        print(sql)
+                        # print(sql)
                         parameter = field
+
                         target_table = table
                         # value = new_val
                         # print(tables_with_common_fields)
@@ -463,6 +454,7 @@ def return_allowed_fields(tablename: str):
             data = json.load(file)
             print(data)
             return data[tablename]
+
     except Exception as e:
         pass
 
